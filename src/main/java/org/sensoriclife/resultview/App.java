@@ -1,8 +1,10 @@
 package org.sensoriclife.resultview;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
-import java.util.Random;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.MutationsRejectedException;
@@ -19,24 +21,31 @@ import org.sensoriclife.util.Helpers;
 /**
  *
  * @author jnphilipp
- * @version 0.0.1
+ * @version 0.1.0
  */
 public class App {
-	public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, MutationsRejectedException, TableNotFoundException, TableExistsException {
+	public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, MutationsRejectedException, TableNotFoundException, TableExistsException, IOException {
 		Logger.getInstance();
+
+		String confFile = "";
+		if ( args.length != 0 ) {
+			List<String> l = Arrays.asList(args);
+			Iterator<String> it = l.iterator();
+
+			while ( it.hasNext() ) {
+				switch ( it.next() ) {
+					case "-conf":
+						confFile = it.next();
+						break;
+				}
+			}
+		}
+
 		Config.getInstance();
-
-		Random r = new Random(System.currentTimeMillis());
-
-		Accumulo.getInstance().connect();
-		Accumulo.getInstance().createTable("test", false);
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "device", "amount", "5".getBytes());
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "residential", "id", "6".getBytes());
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "user", "id", "6".getBytes());
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "user", "residential", "6".getBytes());
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "moehre", "blub", "6".getBytes());
-		Accumulo.getInstance().addMutation("test", Math.abs(r.nextLong()) + "_el", "moehre", "blub", "6".getBytes());
-		Accumulo.getInstance().flushBashWriter("test");
+		if ( confFile.isEmpty() )
+			Config.load();
+		else
+			Config.load(confFile);
 
 		boolean quit = false;
 		do {
