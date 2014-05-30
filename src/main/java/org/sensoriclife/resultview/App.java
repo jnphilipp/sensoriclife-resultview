@@ -27,7 +27,7 @@ public class App {
 	public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, MutationsRejectedException, TableNotFoundException, TableExistsException, IOException {
 		Logger.getInstance();
 
-		String confFile = "";
+		String confFile = "", table = "";
 		if ( args.length != 0 ) {
 			List<String> l = Arrays.asList(args);
 			Iterator<String> it = l.iterator();
@@ -37,9 +37,15 @@ public class App {
 					case "-conf":
 						confFile = it.next();
 						break;
+					case "-t":
+						table = it.next();
+						break;
 				}
 			}
 		}
+
+		if ( table.isEmpty() )
+			System.out.println("resultView (-conf <configuration file>) -t <table>");
 
 		Config.getInstance();
 		if ( confFile.isEmpty() )
@@ -47,10 +53,20 @@ public class App {
 		else
 			Config.load(confFile);
 
+		try {
+			if ( Config.getProperty("accumulo.name").isEmpty() && Config.getProperty("accumulo.zooServers").isEmpty() && Config.getProperty("accumulo.user").isEmpty() && Config.getProperty("accumulo.password").isEmpty() ){
+				Accumulo.getInstance().connect();
+			}
+			else {
+				Accumulo.getInstance().connect(Config.getProperty("accumulo.name"), Config.getProperty("accumulo.zooServers"), Config.getProperty("accumulo.user"), Config.getProperty("accumulo.password"));
+			}
+		}
+		catch ( AccumuloException | AccumuloSecurityException e ) {
+			Logger.error("Error while connecting to accumulo.", e.toString());
+		} 
+
 		boolean quit = false;
 		do {
-			System.out.print("table: ");
-			String table = System.console().readLine().trim();
 			System.out.print("row ids (range): ");
 			String[] rowIds = System.console().readLine().trim().split(" ");
 			System.out.print("family: ");

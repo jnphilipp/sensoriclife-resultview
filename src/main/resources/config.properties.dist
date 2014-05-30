@@ -1,0 +1,4 @@
+accumulo.name=NAME
+accumulo.zooServers=SERVERS
+accumulo.user=USER
+accumulo.password=PASSWORD
