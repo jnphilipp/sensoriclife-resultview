@@ -8,11 +8,13 @@ import java.util.Map.Entry;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.MutationsRejectedException;
+import org.apache.accumulo.core.client.Scanner;
 import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
+import org.apache.hadoop.io.Text;
 import org.sensoriclife.Config;
 import org.sensoriclife.Logger;
 import org.sensoriclife.db.Accumulo;
@@ -21,7 +23,7 @@ import org.sensoriclife.util.Helpers;
 /**
  *
  * @author jnphilipp
- * @version 0.1.0
+ * @version 0.2.0
  */
 public class App {
 	public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, MutationsRejectedException, TableNotFoundException, TableExistsException, IOException {
@@ -78,23 +80,23 @@ public class App {
 			}
 
 			Iterator<Entry<Key, Value>> iterator = null;
+			Scanner scanner = Accumulo.getInstance().getScanner(table);
 
 			if ( rowIds.length != 0 && !rowIds[0].isEmpty() ) {
 				if ( rowIds.length == 1 )
-					iterator = Accumulo.getInstance().scanByKey(table, new Range(rowIds[0].trim(), rowIds[0].trim()));
+					scanner.setRange(new Range(rowIds[0].trim()));
 				else
-					iterator = Accumulo.getInstance().scanByKey(table, new Range(rowIds[0].trim(), rowIds[1].trim()));
+					scanner.setRange(new Range(rowIds[0].trim(), rowIds[1].trim()));
 			}
 
 			if ( !family.isEmpty() && qualifier.isEmpty() )
-				iterator = Accumulo.getInstance().scanByFamily(table, family);
+				scanner.fetchColumnFamily(new Text(family));
 			else if ( !family.isEmpty() && !qualifier.isEmpty() )
-				iterator = Accumulo.getInstance().scanColumns(table, family, qualifier);
+				scanner.fetchColumn(new Text(family), new Text(qualifier));
 
-			if ( (rowIds.length == 0 || rowIds[0].isEmpty()) && family.isEmpty() )
-				iterator = Accumulo.getInstance().scanAll(table);
-
+			iterator = scanner.iterator();
 			printIterator(iterator);
+			scanner.close();
 
 			System.out.print("quit? ");
 			switch ( System.console().readLine().trim() ) {
