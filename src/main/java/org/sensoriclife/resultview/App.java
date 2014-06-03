@@ -23,7 +23,7 @@ import org.sensoriclife.util.Helpers;
 /**
  *
  * @author jnphilipp
- * @version 0.2.0
+ * @version 0.2.1
  */
 public class App {
 	public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, MutationsRejectedException, TableNotFoundException, TableExistsException, IOException {
@@ -65,7 +65,7 @@ public class App {
 		}
 		catch ( AccumuloException | AccumuloSecurityException e ) {
 			Logger.error("Error while connecting to accumulo.", e.toString());
-		} 
+		}
 
 		boolean quit = false;
 		do {
@@ -84,19 +84,26 @@ public class App {
 
 			if ( rowIds.length != 0 && !rowIds[0].isEmpty() ) {
 				if ( rowIds.length == 1 )
-					scanner.setRange(new Range(rowIds[0].trim()));
+					scanner.setRange(new Range(new Text(Helpers.toByteArray(rowIds[0].trim()))));
 				else
-					scanner.setRange(new Range(rowIds[0].trim(), rowIds[1].trim()));
+					scanner.setRange(new Range(new Text(Helpers.toByteArray(rowIds[0].trim())), new Text(Helpers.toByteArray(rowIds[1].trim()))));
 			}
 
 			if ( !family.isEmpty() && qualifier.isEmpty() )
-				scanner.fetchColumnFamily(new Text(family));
+				scanner.fetchColumnFamily(new Text(Helpers.toByteArray(family)));
 			else if ( !family.isEmpty() && !qualifier.isEmpty() )
-				scanner.fetchColumn(new Text(family), new Text(qualifier));
+				scanner.fetchColumn(new Text(Helpers.toByteArray(family)), new Text(Helpers.toByteArray(qualifier)));
 
 			iterator = scanner.iterator();
-			printIterator(iterator);
-			scanner.close();
+			try {
+				printIterator(iterator);
+			}
+			catch ( ClassNotFoundException e ) {
+				Logger.error(App.class, "Error while converting byte arrays to Object.", e.toString());
+			}
+			finally {
+				scanner.close();
+			}
 
 			System.out.print("quit? ");
 			switch ( System.console().readLine().trim() ) {
@@ -110,7 +117,7 @@ public class App {
 		} while ( !quit );
 	}
 
-	private static void printIterator(Iterator<Entry<Key, Value>> iterator) {
+	private static void printIterator(Iterator<Entry<Key, Value>> iterator) throws ClassNotFoundException, IOException {
 		if ( iterator == null )
 			System.out.println("Nothing found.");
 		else {
@@ -119,20 +126,33 @@ public class App {
 			while ( iterator.hasNext() ) {
 				Entry<Key, Value> entry = iterator.next();
 
-				int spaces = (30 - entry.getKey().getRow().toString().length()) / 2;
-				System.out.print(Helpers.repeat(" ", spaces, "") + "" + entry.getKey().getRow() + Helpers.repeat(" ", ((30 - entry.getKey().getRow().toString().length()) % 2 == 0 ? spaces : spaces + 1), ""));
+				String key = Helpers.toObject(entry.getKey().getRow().getBytes()).toString();
+				int spaces = (30 - key.length()) / 2;
+				System.out.print(Helpers.repeat(" ", spaces, "") + key + Helpers.repeat(" ", ((30 - key.length()) % 2 == 0 ? spaces : spaces + 1), ""));
 
-				spaces = (22 - entry.getKey().getColumnFamily().toString().length()) / 2;
-				System.out.print("|" + Helpers.repeat(" ", spaces, "") + "" + entry.getKey().getColumnFamily() + Helpers.repeat(" ", ((30 - entry.getKey().getColumnFamily().toString().length()) % 2 == 0 ? spaces : spaces + 1), ""));
+				String family = Helpers.toObject(entry.getKey().getColumnFamily().getBytes()).toString();
+				spaces = (22 - family.length()) / 2;
+				System.out.print("|" + Helpers.repeat(" ", spaces, "") + family + Helpers.repeat(" ", ((30 - family.length()) % 2 == 0 ? spaces : spaces + 1), ""));
 
-				spaces = (23 - entry.getKey().getColumnQualifier().toString().length()) / 2;
-				System.out.print("|" + Helpers.repeat(" ", spaces, "") + "" + entry.getKey().getColumnQualifier() + Helpers.repeat(" ", ((23 - entry.getKey().getColumnQualifier().toString().length()) % 2 == 0 ? spaces : spaces + 1), ""));
+				String qualifier = Helpers.toObject(entry.getKey().getColumnQualifier().getBytes()).toString();
+				spaces = (23 - qualifier.length()) / 2;
+				System.out.print("|" + Helpers.repeat(" ", spaces, "") + "" + qualifier + Helpers.repeat(" ", ((23 - qualifier.length()) % 2 == 0 ? spaces : spaces + 1), ""));
 
 				spaces = (17 - Long.toString(entry.getKey().getTimestamp()).length()) / 2;
 				System.out.print("|" + Helpers.repeat(" ", spaces, "") + "" + entry.getKey().getTimestamp() + Helpers.repeat(" ", ((17 - Long.toString(entry.getKey().getTimestamp()).length()) % 2 == 0 ? spaces : spaces + 1), ""));
 
-				spaces = (60 - entry.getValue().toString().length()) / 2;
-				System.out.println("|" + Helpers.repeat(" ", spaces, "") + "" + entry.getValue() + Helpers.repeat(" ", ((60 - entry.getValue().toString().length()) % 2 == 0 ? spaces : spaces + 1), ""));
+				String value = "";
+				if ( family.equals("user") && qualifier.equals("id") ) {
+					byte[] values = entry.getValue().get();
+					String id = Helpers.toObject(Arrays.copyOfRange(values, 0, 82)).toString();
+					String user = Helpers.toObject(Arrays.copyOfRange(values, 82, values.length)).toString();
+					value = id + ";" + user;
+				}
+				else
+					value = Helpers.toObject(entry.getValue().get()).toString();
+
+				spaces = (60 - value.length()) / 2;
+				System.out.println("|" + Helpers.repeat(" ", spaces, "") + value + Helpers.repeat(" ", ((60 - value.length()) % 2 == 0 ? spaces : spaces + 1), ""));
 			}
 		}
 	}
